@@ -7,9 +7,14 @@ import socket
 import threading
 import Crypto.Cipher.AES as AES
 import Crypto.PublicKey.RSA as RSA
+from Crypto import Random
+import random
+import string
 
 """Handles the data received from the client to the server
 and reedirects it to the data handler class"""
+
+
 
 class Client_receiver(threading.Thread):
     """Threading Class that receives data from the client
@@ -30,7 +35,15 @@ class Client_receiver(threading.Thread):
                 rsa_key_r = RSA.generate(2048)
                 rsa_key_u = rsa_key_r.publickey()
                 sock.send(rsa_key_u.exportKey().encode())
-                
+                data = sock.recv(450)
+                client_rsa_key_u = RSA.importKey(data)
+                enc_phase_1 = True
+            while not enc_phase_2:
+                AES_key = ''.join(random.choice(string.ascii_letters+string.digits) for _ in range(AES.block_size))
+                iv = Random.new().read(AES.block_size)
+                aes = AES.new(AES_key, AES.MODE_CFB, iv)
+                msg = client_rsa_key_u.encrypt(AES_key, random.randint(2,50))
+                sock.send(msg.encode())
             pass
         except:
             pass
