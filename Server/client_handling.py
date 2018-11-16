@@ -13,7 +13,7 @@ import string
 
 """Handles the data received from the client to the server
 and reedirects it to the data handler class"""
-
+passphrase = 'N1pRzIIFtc'
 
 
 class Client_receiver(threading.Thread):
@@ -30,6 +30,12 @@ class Client_receiver(threading.Thread):
         auth = False
         enc_phase_1 = False
         enc_phase_2 = False
+        t_id = None
+        rsa_key_r = None
+        client_rsa_key_u = None
+        aes = None
+        iv = None
+        AES_key = None
         try:
             while not enc_phase_1:
                 rsa_key_r = RSA.generate(2048)
@@ -44,6 +50,21 @@ class Client_receiver(threading.Thread):
                 aes = AES.new(AES_key, AES.MODE_CFB, iv)
                 msg = client_rsa_key_u.encrypt(AES_key, random.randint(2,50))
                 sock.send(msg.encode())
+                data = sock.recv(245)
+                client_d = rsa_key_r.decrypt(data)
+                t_id = random._urandom(2)
+                if client_d == AES_key:
+                    enc_phase_2 = True
+            while not auth:
+                data = t_id + '\x01'
+                sock.send(data.encode())
+                data = sock.recv(245)
+                msg = rsa_key_r.decrypt(data)
+                t_id, c_msg = msg[0], msg[2:]
+                if c_msg == passphrase:
+                    auth = True
+                else:
+                    pass
             pass
         except:
             pass
