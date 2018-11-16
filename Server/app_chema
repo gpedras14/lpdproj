@@ -1,0 +1,7 @@
+<APPSCHEMA> <filetitle>Application Schema </filetitle>
+<title> APPLICATION LAYER FORMAT</title>
+<tittlebranch>
+|------------------5bytes-------------------|
+|---1byte---1byte---1byte---1byte---1byte---|
+*********************************************
+|--t_id---|

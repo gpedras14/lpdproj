@@ -5,7 +5,7 @@
 import socket
 import Crypto.Cipher.AES
 import threading
-import client_handling.Client_receiver as C_receiver
+from client_handling import Client_receiver as C_receiver
 
 clients_threads = []
 
@@ -16,13 +16,17 @@ class Connection_listener(threading.Thread):
 
     def run(self):
         while True:
-            sock.listen(2)
-            t =  sock.accept()
-            clients_threads.append(t)
-            C_receiver(t[0]).start()
+            self.sock.listen(2)
+            sock, addr =  self.sock.accept()
+            #clients_threads.append(t)
+            C_receiver(sock).start()
 
 def main():
-    pass
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(155)
+    sock.bind(('0.0.0.0', 5001))
+    thrd = Connection_listener(sock)
+    thrd.start()
 
 
 if __name__ == '__main__':
