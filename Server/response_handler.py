@@ -6,7 +6,7 @@ import threading
 
 class data_handler(threading.Thread):
     def __init__(self, sock, data):
-        threading.Thread.__init__()
+        super(data_handler, self).__init__()
         self.sock = sock
         self.data = data
         if type(sock) is not type(socket.socket):
