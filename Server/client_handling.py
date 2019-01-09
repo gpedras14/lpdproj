@@ -54,22 +54,25 @@ def encrypt_RSA(rsa_key_u, msg):
             offset = n
         if bytes_left is not 0:
             result += encrypt(msg[offset:bytes_left], random.randint(2,50))
-    return result
+    return result[0]
 
 
-def decrypt_RSA(rsa_key_u, data):
+def decrypt_RSA(rsa_key_r, data):
     msg = None
+    result = None
     if len(data)==256:
-        msg = rsa_key_u.decrypt(data)
+        msg = rsa_key_r.decrypt(data)
+        result = msg
     else:
         chunks = len(data)//256
         bytes_left = len(data)%256
+        offset = 0
         for i in range(chunks):
             n = 256*(i+1)
-            result += rsa_key_u.decrypt(data[offset:n])
+            result += rsa_key_r.decrypt(data[offset:n])
             offset = n
         if bytes_left is not 0:
-            result += decrypt(data[offset:bytes_left])
+            result += rsa_key_r.decrypt(data[offset:bytes_left])
     return result
 
 
@@ -94,44 +97,36 @@ class Client_receiver(threading.Thread):
         aes = None
         iv = None
         AES_key = None
-        try:
-            while not enc_phase_1:
-                rsa_key_r = generate_rsa()
-                rsa_key_u = rsa_key_r.publickey()
-                self.sock.send(rsa_key_u.exportKey('DER'))
-                data = self.sock.recv(1024)
-                if len()
-                #pass key to base64
-                client_rsa_key_u = RSA.importKey(data)
-                enc_phase_1 = True
-            while not enc_phase_2:
-                AES_key = generate_AES_key()
-                iv = Random.new().read(AES.block_size)
-                aes = create_AES(aes_key, iv)
-                msg = encrypt_RSA(aes_key)
-                self.sock.send(msg)
-                data = self.sock.recv(256)
-                client_d = decrypt_RSA(data)
-                t_id = random._urandom(2)
-                if client_d == AES_key:
-                    enc_phase_2 = True
-            while not auth:
-                data = t_id + '\x01'
-                data = client_rsa_key_u.encrypt(AES_key, random.randint(2,50))
-                self.sock.send(data.encode())
-                data = self.sock.recv(256)
-                msg = rsa_key_r.decrypt(data)
-                t_id, c_msg = msg[0], msg[2:]
-                if c_msg == passphrase:
-                    auth = True
-                    D_handler(self.sock, AES_key, rsa_key_r, client_rsa_key_u).start()
-                else:
-                    pass
-            pass
-        except:
-            pass
-        finally:
-            pass
+        while not enc_phase_1:
+            rsa_key_r = generate_rsa()
+            rsa_key_u = rsa_key_r.publickey()
+            self.sock.send(rsa_key_u.exportKey('DER')) #1
+            data = self.sock.recv(1024) #2
+            client_rsa_key_u = RSA.importKey(data)
+            enc_phase_1 = True
+        while not enc_phase_2:
+            AES_key = generate_AES_key()
+            aes = create_AES(AES_key, Random.new().read(AES.block_size))
+            msg = encrypt_RSA(client_rsa_key_u, AES_key)
+            self.sock.send(msg) #3
+            data = self.sock.recv(256) #4
+            client_d = decrypt_RSA(rsa_key_r, data)
+            t_id = random._urandom(1)
+            if client_d == AES_key:
+                enc_phase_2 = True
+        while not auth:
+            data = t_id + chr(128)
+            data = encrypt_RSA(client_rsa_key_u, encrypt_AES(aes, data))
+            self.sock.send(data) #5
+            data = self.sock.recv(256)
+            data = decrypt_RSA(rsa_key_r, data)
+            msg = decrypt_AES(aes, data)
+            t_id, c_msg = msg[0], msg[2:]
+            if c_msg == passphrase:
+                auth = True
+                D_handler(self.sock, AES_key, rsa_key_r, client_rsa_key_u).start()
+            else:
+                self.sock.close()
         #1st phase: authentication
         #2nd phase: issue commands
         #3rd phase: answer to those commands

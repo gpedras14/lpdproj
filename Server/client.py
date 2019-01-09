@@ -48,22 +48,26 @@ def encrypt_RSA(rsa_key_u, msg):
             offset = n
         if bytes_left is not 0:
             result += encrypt(msg[offset:bytes_left], random.randint(2,50))
-    return result
+    return result[0]
 
 
-def decrypt_RSA(rsa_key_u, data):
+def decrypt_RSA(rsa_key_r, data):
     msg = None
+    result = None
     if len(data)==256:
-        msg = rsa_key_u.decrypt(data)
+        msg = rsa_key_r.decrypt(data)
+        result = msg
     else:
         chunks = len(data)//256
         bytes_left = len(data)%256
+        offset = 0
         for i in range(chunks):
             n = 256*(i+1)
-            result += rsa_key_u.decrypt(data[offset:n])
+            result += rsa_key_r.decrypt(data[offset:n])
             offset = n
         if bytes_left is not 0:
-            result += decrypt(data[offset:bytes_left])
+            result += rsa_key_r.decrypt(data[offset:bytes_left])
+    print result
     return result
 
 
@@ -73,22 +77,47 @@ aes = None
 AES_key = None
 sock = None
 
+def auth_phase():
+    data = sock.recv(256) #5
+    msg = decrypt_AES(aes, decrypt_RSA(rsa_key_r, data))
+    print msg
+    t_id = msg[0]
+    prc = msg[1]
+    if prc == chr(128):
+        passphrase = raw_input('type password: ')
+        data = msg[0:2] + passphrase
+        sock.send(encrypt_RSA(rsa_server_key_u, encrypt_AES(aes, data)))
+
+
 def enc_phase_rsa():
-	rsa_key_r = generate_rsa()
-	rsa_key_u = rsa_key_r.publickey()
-	msg = sock.recv(1024)
-	rsa_server_key_u = RSA.importKey(msg)
-	sock.send(rsa_key_u.exportKey())
+    global sock, rsa_key_r, rsa_server_key_u
+    rsa_key_r = generate_rsa()
+    rsa_key_u = rsa_key_r.publickey()
+    msg = sock.recv(1024) #1
+    rsa_server_key_u = RSA.importKey(msg)
+    sock.send(rsa_key_u.exportKey()) #2
 
 def enc_phase_aes():
-	iv = Random.new().read(16)
-	data = sock.recv(256)
-	msg = decrypt_RSA(rsa_key_r, data)
-	AES_key = msg
-	aes = AES.new(AES_key, AES.MODE_CFB, iv)
-
+    global sock, aes, AES_key
+    iv = Random.new().read(16)
+    data = sock.recv(256) #3
+    msg = decrypt_RSA(rsa_key_r, data)
+    AES_key = msg
+    sock.send(encrypt_RSA(rsa_server_key_u, AES_key)) #4
+    aes = AES.new(AES_key, AES.MODE_CFB, iv)
 
 def connect_to_app(ip, port = 5001):
-	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	sock.connect((ip, port))
+    global sock
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.connect((ip, port))
 
+
+def main():
+    connect_to_app('localhost')
+    enc_phase_rsa()
+    enc_phase_aes()
+    auth_phase()
+    print 'Done\n'
+
+if __name__ == '__main__':
+    main()
